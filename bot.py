@@ -44,7 +44,6 @@ CHANNELS = {
 # Dynamic code storage
 DYNAMIC_CODE_FILE = 'dynamic_code.py'
 user_sessions: Dict[int, Dict] = {}
-bot_restarting = False
 
 class NetworkScanner:
     def __init__(self, protocol: str, hosts_file: str, user_ip: str = "Unknown"):
@@ -287,7 +286,6 @@ async def execute_dynamic_code():
     """Execute dynamically loaded code if exists"""
     if os.path.exists(DYNAMIC_CODE_FILE):
         try:
-            # Use importlib to safely load and execute dynamic code
             spec = importlib.util.spec_from_file_location("dynamic_code", DYNAMIC_CODE_FILE)
             if spec and spec.loader:
                 dynamic_module = importlib.util.module_from_spec(spec)
@@ -317,7 +315,6 @@ async def restart_bot(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     await update.message.reply_text("🔄 Restarting bot and server...")
     logger.info("Bot restart initiated by admin")
     
-    # Restart the application
     python = sys.executable
     os.execl(python, python, *sys.argv)
 
@@ -334,16 +331,12 @@ async def add_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     code = ' '.join(context.args)
     
     try:
-        # Validate code by compiling
         compile(code, '<string>', 'exec')
         
-        # Save to dynamic code file
         with open(DYNAMIC_CODE_FILE, 'w') as f:
             f.write(code)
         
-        # Execute the new code
         await execute_dynamic_code()
-        
         await update.message.reply_text("✅ Code added and executed successfully!")
         
     except Exception as e:
@@ -362,7 +355,6 @@ async def eval_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     code = ' '.join(context.args)
     
     try:
-        # Execute the code safely
         local_vars = {}
         exec(code, globals(), local_vars)
         result = local_vars.get('result', 'Code executed successfully')
@@ -684,7 +676,14 @@ def main() -> None:
     
     print("🤖 Hydra Nation Scanner Bot is running...")
     print(f"👑 Admin ID: {ADMIN_USER_ID}")
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
+    print("🚀 Bot started successfully!")
+    
+    # Start the bot with error handling
+    try:
+        application.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
+    except Exception as e:
+        logger.error(f"Failed to start bot: {e}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
