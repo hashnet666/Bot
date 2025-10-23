@@ -3,8 +3,8 @@ services:
     name: hydra-scanner-bot
     env: python
     plan: free
-    buildCommand: pip install -r requirements_render.txt
-    startCommand: python bot_render.py
+    buildCommand: pip install -r requirements.txt
+    startCommand: python bot.py
     envVars:
       - key: BOT_TOKEN
         value: 8307126286:AAHIZJg7Zr47bCoFAXNHJydTA-r1vpWcj5k
