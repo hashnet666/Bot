@@ -6,7 +6,7 @@ import aiofiles
 import subprocess
 import sys
 import importlib
-import requests
+import importlib.util
 from typing import Dict, List, Tuple
 import json
 from datetime import datetime
@@ -287,11 +287,13 @@ async def execute_dynamic_code():
     """Execute dynamically loaded code if exists"""
     if os.path.exists(DYNAMIC_CODE_FILE):
         try:
+            # Use importlib to safely load and execute dynamic code
             spec = importlib.util.spec_from_file_location("dynamic_code", DYNAMIC_CODE_FILE)
-            dynamic_module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(dynamic_module)
-            logger.info("Dynamic code executed successfully")
-            return True
+            if spec and spec.loader:
+                dynamic_module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(dynamic_module)
+                logger.info("Dynamic code executed successfully")
+                return True
         except Exception as e:
             logger.error(f"Error executing dynamic code: {e}")
     return False
@@ -360,8 +362,10 @@ async def eval_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     code = ' '.join(context.args)
     
     try:
-        # Execute the code
-        result = eval(code)
+        # Execute the code safely
+        local_vars = {}
+        exec(code, globals(), local_vars)
+        result = local_vars.get('result', 'Code executed successfully')
         await update.message.reply_text(f"✅ Result: {result}")
         
     except Exception as e:
@@ -392,6 +396,22 @@ async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         reply_markup=reply_markup,
         parse_mode='Markdown'
     )
+
+async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Show bot statistics"""
+    if update.effective_user.id != ADMIN_USER_ID:
+        await update.message.reply_text("❌ Admin only command")
+        return
+    
+    stats_text = (
+        f"📊 *Bot Statistics*\n\n"
+        f"• Active sessions: {len(user_sessions)}\n"
+        f"• Admin ID: {ADMIN_USER_ID}\n"
+        f"• Bot running since: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+        f"• Dynamic code loaded: {os.path.exists(DYNAMIC_CODE_FILE)}"
+    )
+    
+    await update.message.reply_text(stats_text, parse_mode='Markdown')
 
 # User Handlers
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -653,6 +673,7 @@ def main() -> None:
     application.add_handler(CommandHandler("addcode", add_code))
     application.add_handler(CommandHandler("eval", eval_code))
     application.add_handler(CommandHandler("admin", admin_panel))
+    application.add_handler(CommandHandler("stats", stats_command))
     application.add_handler(CallbackQueryHandler(protocol_callback, pattern="^protocol_"))
     application.add_handler(CallbackQueryHandler(channels_callback, pattern="^channels$"))
     application.add_handler(CallbackQueryHandler(start_scan_callback, pattern="^start_scan$"))
